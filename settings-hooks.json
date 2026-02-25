@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "PermissionRequest": [
+      {
+        "matcher": "",
+        "hooks": [
+          {"type": "command", "command": "printf 'question' > /tmp/claude_bell_type && printf '\\a' > /dev/tty"}
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {"type": "command", "command": "printf 'question' > /tmp/claude_bell_type && printf '\\a' > /dev/tty"}
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {"type": "command", "command": "python3 ~/.claude/hooks/stop.py"}
+        ]
+      }
+    ]
+  }
+}
