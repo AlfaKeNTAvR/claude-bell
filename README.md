@@ -14,7 +14,29 @@ The flash targets only the specific split pane where Claude is running and persi
 
 ## Installation
 
-### 1. Terminator plugin
+### Option A — script
+
+```bash
+./install.sh
+```
+
+Requires Python 3 (standard) and `jq` (for merging an existing `~/.claude/settings.json`).
+Restart Terminator when done.
+
+### Option B — ask Claude Code
+
+Clone the repo, open a Claude Code session inside it, and say:
+
+> Set up terminator-claude-bell for me.
+
+Claude has full context in `CLAUDE.md` and handles the `settings.json` merge gracefully even if you have existing hooks.
+
+### Option C — manual
+
+<details>
+<summary>Step-by-step instructions</summary>
+
+**1. Terminator plugin**
 
 ```bash
 mkdir -p ~/.config/terminator/plugins
@@ -34,7 +56,7 @@ Add to your `~/.config/terminator/config` under `[[default]]` in the `[profiles]
 
 Restart Terminator.
 
-### 2. Claude Code hooks
+**2. Claude Code hooks**
 
 ```bash
 mkdir -p ~/.claude/hooks
@@ -49,6 +71,8 @@ cp settings-hooks.json ~/.claude/settings.json
 ```
 
 If you already have a settings file, add the `"hooks"` block from `settings-hooks.json` into it manually.
+
+</details>
 
 ## How it works
 
