@@ -98,7 +98,7 @@ def enable_plugin(text, name):
     changed.append(f'prepended [global_config] with enabled_plugins = {name}')
     return f'[global_config]\n  enabled_plugins = {name}\n' + text
 
-text = set_bell_key(text, 'visible_bell', 'True')
+text = set_bell_key(text, 'visible_bell', 'False')
 text = set_bell_key(text, 'icon_bell', 'False')
 text = enable_plugin(text, 'BellFlashTitle')
 

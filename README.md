@@ -50,7 +50,7 @@ Add to your `~/.config/terminator/config` under `[[default]]` in the `[profiles]
 ```ini
 [profiles]
   [[default]]
-    visible_bell = True
+    visible_bell = False
     icon_bell = False
 ```
 
@@ -93,5 +93,6 @@ _PROFILES = {
     'done':     {'color': b'#2E7D32', 'ms': 800},   # green, slow
     'question': {'color': b'#CC0000', 'ms': 300},   # red, fast
 }
-_FLASH_HEIGHT = 40  # titlebar height in px while flashing; -1 to disable
+_FLASH_HEIGHT = 30  # permanent titlebar height in px; -1 to keep default height
+_MAX_AGE_S = 2.0    # ignore bells where the type file is older than this
 ```

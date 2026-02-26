@@ -37,15 +37,14 @@ Fires for general Claude Code notifications. Always writes `question`. Currently
 
 - Uses `terminatorlib.plugin.Plugin` with `terminal_menu` capability
 - Scans `Terminator().terminals` on startup and every 3 s to attach to new split panes
-- On each terminal, connects to: `vte.bell`, `vte.button-press-event`, `vte.key-press-event`
-- On bell: reads `/tmp/claude_bell_type`, picks a color profile, applies GTK3 CSS to `terminal.titlebar`, calls `set_size_request(-1, _FLASH_HEIGHT)`, starts a GLib timeout for flashing
-- `set_size_request` is re-applied on every "on" tick because Terminator resets it on window focus changes
+- On each terminal attach: calls `set_size_request(-1, _FLASH_HEIGHT)` once to permanently widen the titlebar (avoids resize events during flash that would reset VTE scroll position), then connects to: `vte.bell`, `vte.button-press-event`, `vte.key-press-event`
+- On bell: checks `/tmp/claude_bell_type` freshness (`_MAX_AGE_S`); ignores stale bells (e.g. bash Tab completion). If fresh, picks a color profile, applies GTK3 CSS to `terminal.titlebar`, disables `scroll-on-output` on the VTE, starts a GLib timeout for color flashing
 - On interact (click/keypress): stops flashing for that specific pane
-- Focus poll (`_focus_poll`, 200 ms): stops flashing only when `window.is_active() AND vte.is_focus()` — ensures flash persists when user is on another monitor
+- Focus poll (`_focus_poll`, 200 ms): stops flashing only when `window.is_active() AND vte.is_focus() AND scroll is at bottom` — ensures flash persists when user is on another monitor or has scrolled up to read history
 
 **If flash stops too early:** Check `_focus_poll` — `is_focus()` returns True for the last-focused pane even when the window isn't active. The `window.is_active()` guard prevents this. If it regresses, check GTK version behaviour of `Gtk.Widget.is_focus()` and `Gtk.Window.is_active()`.
 
-**If height doesn't change:** `set_size_request` is called in both `_on_bell` and `_tick` (on the "on" state). If Terminator overrides it more aggressively in a future version, the fallback is to remove `_FLASH_HEIGHT` support (set it to `-1`) and rely on colour alone.
+**If scroll jumps when flash fires:** The titlebar height is set permanently on attach (`_attach_new_terminals`) to avoid resize events. If VTE scroll still resets, check whether Terminator is overriding `set_size_request` on attach and re-evaluate using `_FLASH_HEIGHT = -1` (colour-only flash).
 
 **If the plugin doesn't load:** Confirm `BellFlashTitle` is listed in `enabled_plugins` in `~/.config/terminator/config` and that the plugin is enabled in Terminator Preferences → Plugins.
 
