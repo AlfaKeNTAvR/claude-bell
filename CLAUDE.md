@@ -1,18 +1,33 @@
-# CLAUDE.md — terminator-claude-bell
+# CLAUDE.md — claude-bell
 
 This file is for Claude Code agents setting up or maintaining this project.
 
 ## What this repo does
 
-Provides visual notifications in Terminator when Claude Code finishes a response or needs user input. A Claude Code hook rings the terminal bell (`\a`), and a Terminator plugin flashes the titlebar of the specific pane.
+Provides notifications when Claude Code finishes a response or needs user input.
+
+- **Linux (Terminator):** A Claude Code hook rings the terminal bell (`\a`), and a Terminator plugin flashes the titlebar of the specific pane.
+- **Windows (Windows Terminal):** Claude Code hooks fire PowerShell scripts that show WinRT toast notifications. Clicking a toast focuses the existing WT window.
 
 ## File map
+
+### Linux (Terminator)
 
 | File | Purpose |
 |------|---------|
 | `plugins/bell_flash.py` | Terminator plugin — listens for VTE bell, flashes titlebar |
 | `hooks/stop.py` | Claude Code Stop hook — classifies response as `done` or `question` |
 | `settings-hooks.json` | Hook config snippet to merge into `~/.claude/settings.json` |
+| `install.sh` | Idempotent installer for Linux |
+
+### Windows (Windows Terminal)
+
+| File | Purpose |
+|------|---------|
+| `hooks/stop.ps1` | Stop hook — reads JSON stdin, shows done/question toast via WinRT |
+| `hooks/notify.ps1` | PermissionRequest/Notification hook — always shows reminder toast |
+| `settings-hooks-windows.json` | Hook config snippet to merge into `~/.claude/settings.json` |
+| `install.ps1` | Idempotent installer for Windows (no admin rights required) |
 
 ## Claude Code hooks used
 
@@ -48,7 +63,59 @@ Fires for general Claude Code notifications. Always writes `question`. Currently
 
 **If the plugin doesn't load:** Confirm `BellFlashTitle` is listed in `enabled_plugins` in `~/.config/terminator/config` and that the plugin is enabled in Terminator Preferences → Plugins.
 
+## Windows hook internals (`hooks/stop.ps1`, `hooks/notify.ps1`)
+
+- Both scripts use `powershell.exe` (Windows PowerShell 5.1), not `pwsh` — faster startup and
+  native WinRT API access without assembly downloads
+- `stop.ps1` reads stdin via `[Console]::In.ReadToEnd()` (more reliable than `$Input` under
+  `-File` invocation), parses with `ConvertFrom-Json`, checks `last_assistant_message.EndsWith('?')`
+- Toast XML uses `scenario="reminder"` for urgent (question) and no scenario for done.
+  `scenario="urgent"` requires a packaged app; `reminder` gives the same prominent display for
+  unpackaged callers
+- App ID `ClaudeCode` is registered in `HKCU:\Software\Classes\AppUserModelId\ClaudeCode` by
+  `install.ps1` — this makes "Claude Code" appear as the notification source in the action center
+- Both scripts wrap the WinRT call in `try/catch` — toast failures are silent so they never
+  break Claude Code
+- Both scripts wrap the focus check (`Add-Type` + P/invoke) in a separate `try/catch` that
+  falls through on error — if the focus check fails for any reason, the toast still fires
+- Focus suppression: `GetForegroundWindow` → `GetWindowThreadProcessId` → `Get-Process` — if
+  the foreground process is `WindowsTerminal`, the script exits 0 silently (no toast needed)
+- Tag deduplication: `$toast.Tag = 'claude-bell'` and `$toast.Group = 'claude-bell'` ensure
+  rapid back-to-back events replace rather than stack in the action center
+- Toast XML includes `activationType="protocol" launch="windowsterminal:"` — clicking a toast
+  focuses the existing WT window via the `windowsterminal:` URI handler
+- `install.ps1` registers `HKCU:\Software\Classes\windowsterminal\shell\open\command` pointing
+  at `wt.exe -w 0 focus-tab` — this is needed because winget-installed WT does not register the
+  URI handler automatically (only Store installs do)
+- `install.ps1` comment lines use plain ASCII dashes (`--`) not Unicode box-drawing characters
+  (`──`) — PS5.1 reads UTF-8 files as Windows-1252 by default, and box-drawing bytes contain
+  `0x94` which decodes as `"`, producing stray quote characters that break the parser
+
+**If toasts don't appear:** Check Windows Settings → System → Notifications → ensure
+"Claude Code" is listed and enabled. Run `install.ps1` again to re-register the app ID.
+
+**Hook command path format:** Uses `"$USERPROFILE/.claude/hooks/stop.ps1"` (bash variable +
+forward slashes + double quotes). Claude Code runs hooks via bash on Windows, so `%USERPROFILE%`
+and backslash paths don't work — bash strips unquoted backslashes and doesn't expand `%VAR%`.
+
+**If the hook command fails:** Verify `$USERPROFILE/.claude/hooks/stop.ps1` exists.
+Check execution policy: the hook command uses `-ExecutionPolicy Bypass` so policy shouldn't
+matter, but confirm with `Get-ExecutionPolicy`.
+
 ## Testing after setup
+
+### Windows
+
+1. Run `.\install.ps1`
+2. Start Claude Code in Windows Terminal
+3. Send Claude a statement — expect a **"Response is ready"** toast (default sound)
+4. Send something Claude responds to with a question — expect **"Claude has a question"** toast (reminder sound)
+5. Trigger a permission prompt — expect **"Claude is waiting"** toast (reminder sound)
+6. Open notification center (Win+N) — all toasts should be attributed to "Claude Code"
+7. Keep Windows Terminal focused and send another message — no toast should appear (suppressed while WT is foreground)
+8. Switch away from WT, trigger a response, click the toast — expect WT to come to front with no new tab or window opened
+
+### Linux (Terminator)
 
 1. Start Claude Code in a Terminator pane
 2. Move focus to another monitor or application
