@@ -34,19 +34,25 @@ Provides notifications when Claude Code finishes a response or needs user input.
 Three hooks in `~/.claude/settings.json`:
 
 ### Stop
-Fires when Claude finishes a response turn. `hooks/stop.py` reads JSON from stdin, checks `last_assistant_message`, and writes `question` or `done` to `/tmp/claude_bell_type` before ringing the bell.
+Fires when Claude finishes a response turn.
 
-**Key field:** `last_assistant_message` (string) — the last assistant message text. Currently used to detect questions by checking `.endswith('?')`.
+- **Linux:** `hooks/stop.py` reads `last_assistant_message` from stdin, writes `question` or `done` to `/tmp/claude_bell_type`, then rings the terminal bell (`\a`).
+- **Windows:** `hooks/stop.ps1` reads `last_assistant_message` from stdin, shows a **"Response is ready"** or **"Claude has a question"** toast depending on whether the message ends with `?`.
 
-**If this breaks:** Verify the Stop hook still receives `last_assistant_message` in its stdin JSON. To debug, temporarily replace the hook command with `cat > /tmp/claude_hook_debug.json` and inspect the output.
+**Key field:** `last_assistant_message` (string) — the last assistant message text. Used to detect questions by checking `.endswith('?')` (Linux) / `.EndsWith('?')` (Windows).
+
+**If this breaks:** Verify the Stop hook still receives `last_assistant_message` in its stdin JSON. See Debugging hooks below.
 
 ### PermissionRequest
-Fires when Claude Code is about to show a tool permission prompt. Always writes `question` (urgent). Confirmed working as of Claude Code with hook event name `PermissionRequest`.
+Fires when Claude Code is about to show a tool permission prompt.
+
+- **Linux:** writes `question` unconditionally to `/tmp/claude_bell_type` and rings the bell.
+- **Windows:** `hooks/notify.ps1` shows a **"Claude is waiting"** reminder toast.
 
 **If this breaks:** Check if the hook event name has changed. The hook receives a JSON object with `hook_event_name`, `tool_name`, and `tool_input` fields.
 
 ### Notification
-Fires for general Claude Code notifications. Always writes `question`. Currently a catch-all for anything not covered by Stop or PermissionRequest.
+Fires for general Claude Code notifications. Catch-all for anything not covered by Stop or PermissionRequest. Same behavior as PermissionRequest on both platforms.
 
 ## Terminator plugin internals (`plugins/bell_flash.py`)
 
@@ -128,9 +134,16 @@ matter, but confirm with `Get-ExecutionPolicy`.
 
 To inspect what a hook receives on stdin:
 
+**Linux:**
 ```bash
 # In ~/.claude/settings.json, temporarily replace a hook command with:
 "command": "cat > /tmp/claude_hook_debug.json"
 # Then trigger the hook and inspect:
 cat /tmp/claude_hook_debug.json
 ```
+
+**Windows:**
+```json
+"command": "powershell.exe -NoProfile -Command \"$input | Set-Content $env:TEMP\\claude_hook_debug.json\""
+```
+Then inspect `%TEMP%\claude_hook_debug.json`.
