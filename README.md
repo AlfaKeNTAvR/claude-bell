@@ -91,6 +91,18 @@ If you already have a settings file, add the `"hooks"` block from `settings-hook
 
 </details>
 
+## Uninstallation
+
+### Linux (Terminator)
+
+```bash
+./uninstall.sh
+```
+
+Removes the plugin, hook, and all entries added to `~/.claude/settings.json` and `~/.config/terminator/config`. Restart Terminator when done.
+
+---
+
 ### Windows (Windows Terminal)
 
 #### Option A — script
@@ -197,3 +209,8 @@ _MAX_AGE_S = 2.0    # ignore bells where the type file is older than this
 **Windows:** Edit the toast XML strings and sound references at the top of `~/.claude/hooks/stop.ps1` and
 `~/.claude/hooks/notify.ps1`. Changes take effect immediately — no restart needed. Available sounds:
 `Notification.Default`, `Notification.Reminder`, `Notification.IM`, `Notification.Mail`, `Notification.Alarm2`, etc.
+
+## TODO
+
+- [x] Add `uninstall.sh` for Linux
+- [ ] Add `uninstall.ps1` for Windows
