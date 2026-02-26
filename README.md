@@ -29,70 +29,6 @@ Toasts are suppressed when Windows Terminal is already in focus. Clicking a toas
 
 ## Installation
 
-### Windows (Windows Terminal)
-
-#### Option A — script
-
-```powershell
-.\install.ps1
-```
-
-No dependencies beyond what ships with Windows 11. Does not require admin rights.
-
-#### Option B — ask Claude Code
-
-Clone the repo, open a Claude Code session inside it, and say:
-
-> Set up claude-bell for me.
-
-Claude has full context in `CLAUDE.md`.
-
-#### Option C — manual
-
-<details>
-<summary>Step-by-step instructions</summary>
-
-**1. Copy hook scripts**
-
-```powershell
-New-Item -ItemType Directory -Force "$HOME\.claude\hooks"
-Copy-Item hooks\stop.ps1   "$HOME\.claude\hooks\"
-Copy-Item hooks\notify.ps1 "$HOME\.claude\hooks\"
-```
-
-**2. Register the app ID** (so toasts show "Claude Code" as the source in Windows Settings)
-
-```powershell
-$r = "HKCU:\Software\Classes\AppUserModelId\ClaudeCode"
-New-Item -Path $r -Force | Out-Null
-New-ItemProperty -Path $r -Name DisplayName      -Value "Claude Code" -PropertyType String -Force | Out-Null
-New-ItemProperty -Path $r -Name ShowInSettings   -Value 1             -PropertyType DWord  -Force | Out-Null
-```
-
-**3. Register the `windowsterminal:` URI handler** (so clicking a toast focuses Windows Terminal)
-
-```powershell
-$wt = (Get-Command wt.exe).Source
-$u  = "HKCU:\Software\Classes\windowsterminal"
-New-Item -Path "$u\shell\open\command" -Force | Out-Null
-New-ItemProperty -Path $u -Name "(default)"    -Value "URL:Windows Terminal" -Force | Out-Null
-New-ItemProperty -Path $u -Name "URL Protocol" -Value ""                     -Force | Out-Null
-New-ItemProperty -Path "$u\shell\open\command" -Name "(default)" -Value "`"$wt`" -w 0 focus-tab" -Force | Out-Null
-```
-
-**4. Merge hooks into `~/.claude/settings.json`**
-
-If you don't have an existing settings file:
-```powershell
-Copy-Item settings-hooks-windows.json "$HOME\.claude\settings.json"
-```
-
-Otherwise add the `"hooks"` block from `settings-hooks-windows.json` into it manually.
-
-</details>
-
----
-
 ### Linux (Terminator)
 
 #### Option A — script
@@ -155,7 +91,79 @@ If you already have a settings file, add the `"hooks"` block from `settings-hook
 
 </details>
 
+### Windows (Windows Terminal)
+
+#### Option A — script
+
+```powershell
+.\install.ps1
+```
+
+No dependencies beyond what ships with Windows 11. Does not require admin rights.
+
+#### Option B — ask Claude Code
+
+Clone the repo, open a Claude Code session inside it, and say:
+
+> Set up claude-bell for me.
+
+Claude has full context in `CLAUDE.md`.
+
+#### Option C — manual
+
+<details>
+<summary>Step-by-step instructions</summary>
+
+**1. Copy hook scripts**
+
+```powershell
+New-Item -ItemType Directory -Force "$HOME\.claude\hooks"
+Copy-Item hooks\stop.ps1   "$HOME\.claude\hooks\"
+Copy-Item hooks\notify.ps1 "$HOME\.claude\hooks\"
+```
+
+**2. Register the app ID** (so toasts show "Claude Code" as the source in Windows Settings)
+
+```powershell
+$r = "HKCU:\Software\Classes\AppUserModelId\ClaudeCode"
+New-Item -Path $r -Force | Out-Null
+New-ItemProperty -Path $r -Name DisplayName      -Value "Claude Code" -PropertyType String -Force | Out-Null
+New-ItemProperty -Path $r -Name ShowInSettings   -Value 1             -PropertyType DWord  -Force | Out-Null
+```
+
+**3. Register the `windowsterminal:` URI handler** (so clicking a toast focuses Windows Terminal)
+
+```powershell
+$wt = (Get-Command wt.exe).Source
+$u  = "HKCU:\Software\Classes\windowsterminal"
+New-Item -Path "$u\shell\open\command" -Force | Out-Null
+New-ItemProperty -Path $u -Name "(default)"    -Value "URL:Windows Terminal" -Force | Out-Null
+New-ItemProperty -Path $u -Name "URL Protocol" -Value ""                     -Force | Out-Null
+New-ItemProperty -Path "$u\shell\open\command" -Name "(default)" -Value "`"$wt`" -w 0 focus-tab" -Force | Out-Null
+```
+
+**4. Merge hooks into `~/.claude/settings.json`**
+
+If you don't have an existing settings file:
+```powershell
+Copy-Item settings-hooks-windows.json "$HOME\.claude\settings.json"
+```
+
+Otherwise add the `"hooks"` block from `settings-hooks-windows.json` into it manually.
+
+</details>
+
 ## How it works
+
+### Linux (Terminator)
+
+Claude Code hooks write a type indicator to `/tmp/claude_bell_type` and ring the terminal bell (`\a`):
+
+- `Stop` hook — runs `hooks/stop.py`, which reads `last_assistant_message` from stdin and writes `question` if the message ends with `?`, otherwise `done`
+- `PermissionRequest` hook — writes `question` unconditionally (permission prompt = urgent)
+- `Notification` hook — writes `question` unconditionally
+
+The Terminator plugin (`plugins/bell_flash.py`) listens for the VTE `bell` signal on each pane, reads `/tmp/claude_bell_type`, and flashes the titlebar accordingly.
 
 ### Windows (Windows Terminal)
 
@@ -173,23 +181,9 @@ if you're already there). They are attributed to "Claude Code" in the notificati
 and respect Focus Assist / Do Not Disturb, still landing in the notification center when suppressed.
 Rapid events replace rather than stack in the action center thanks to tag deduplication.
 
-### Linux (Terminator)
-
-Claude Code hooks write a type indicator to `/tmp/claude_bell_type` and ring the terminal bell (`\a`):
-
-- `Stop` hook — runs `hooks/stop.py`, which reads `last_assistant_message` from stdin and writes `question` if the message ends with `?`, otherwise `done`
-- `PermissionRequest` hook — writes `question` unconditionally (permission prompt = urgent)
-- `Notification` hook — writes `question` unconditionally
-
-The Terminator plugin (`plugins/bell_flash.py`) listens for the VTE `bell` signal on each pane, reads `/tmp/claude_bell_type`, and flashes the titlebar accordingly.
-
 ## Customisation
 
-**Windows:** Edit the toast XML strings and sound references at the top of `hooks/stop.ps1` and
-`hooks/notify.ps1`. Available sounds: `Notification.Default`, `Notification.Reminder`,
-`Notification.IM`, `Notification.Mail`, `Notification.Alarm2`, etc.
-
-**Linux:** Edit the constants at the top of `plugins/bell_flash.py`:
+**Linux:** Edit the constants at the top of `~/.config/terminator/plugins/bell_flash.py`, then restart Terminator:
 
 ```python
 _PROFILES = {
@@ -199,3 +193,7 @@ _PROFILES = {
 _FLASH_HEIGHT = 30  # permanent titlebar height in px; -1 to keep default height
 _MAX_AGE_S = 2.0    # ignore bells where the type file is older than this
 ```
+
+**Windows:** Edit the toast XML strings and sound references at the top of `~/.claude/hooks/stop.ps1` and
+`~/.claude/hooks/notify.ps1`. Changes take effect immediately — no restart needed. Available sounds:
+`Notification.Default`, `Notification.Reminder`, `Notification.IM`, `Notification.Mail`, `Notification.Alarm2`, etc.
