@@ -4,7 +4,10 @@ This file is for Claude Code agents setting up or maintaining this project.
 
 ## What this repo does
 
-Provides visual notifications in Terminator when Claude Code finishes a response or needs user input. A Claude Code hook rings the terminal bell (`\a`), and a Terminator plugin flashes the titlebar of the specific pane.
+Provides notifications when Claude Code finishes a response or needs user input.
+
+- **Linux (Terminator):** A Claude Code hook rings the terminal bell (`\a`), and a Terminator plugin flashes the titlebar of the specific pane.
+- **Windows (Windows Terminal):** Claude Code hooks fire PowerShell scripts that show WinRT toast notifications. Clicking a toast focuses the existing WT window.
 
 ## File map
 
@@ -79,6 +82,14 @@ Fires for general Claude Code notifications. Always writes `question`. Currently
   the foreground process is `WindowsTerminal`, the script exits 0 silently (no toast needed)
 - Tag deduplication: `$toast.Tag = 'claude-bell'` and `$toast.Group = 'claude-bell'` ensure
   rapid back-to-back events replace rather than stack in the action center
+- Toast XML includes `activationType="protocol" launch="windowsterminal:"` — clicking a toast
+  focuses the existing WT window via the `windowsterminal:` URI handler
+- `install.ps1` registers `HKCU:\Software\Classes\windowsterminal\shell\open\command` pointing
+  at `wt.exe -w 0 focus-tab` — this is needed because winget-installed WT does not register the
+  URI handler automatically (only Store installs do)
+- `install.ps1` comment lines use plain ASCII dashes (`--`) not Unicode box-drawing characters
+  (`──`) — PS5.1 reads UTF-8 files as Windows-1252 by default, and box-drawing bytes contain
+  `0x94` which decodes as `"`, producing stray quote characters that break the parser
 
 **If toasts don't appear:** Check Windows Settings → System → Notifications → ensure
 "Claude Code" is listed and enabled. Run `install.ps1` again to re-register the app ID.
@@ -102,6 +113,7 @@ matter, but confirm with `Get-ExecutionPolicy`.
 5. Trigger a permission prompt — expect **"Claude is waiting"** toast (reminder sound)
 6. Open notification center (Win+N) — all toasts should be attributed to "Claude Code"
 7. Keep Windows Terminal focused and send another message — no toast should appear (suppressed while WT is foreground)
+8. Switch away from WT, trigger a response, click the toast — expect WT to come to front with no new tab or window opened
 
 ### Linux (Terminator)
 
