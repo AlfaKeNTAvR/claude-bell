@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install.sh — set up terminator-claude-bell
+# install.sh — set up claude-bell
 #
 # Idempotent for Terminator config edits and file copies.
 # Skips settings.json merge if a Stop hook is already present there.
@@ -8,7 +8,7 @@ set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "Installing terminator-claude-bell..."
+echo "Installing claude-bell..."
 echo
 
 # ── 1. Terminator plugin ──────────────────────────────────────────────────────

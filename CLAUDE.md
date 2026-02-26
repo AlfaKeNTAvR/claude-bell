@@ -1,4 +1,4 @@
-# CLAUDE.md — terminator-claude-bell
+# CLAUDE.md — claude-bell
 
 This file is for Claude Code agents setting up or maintaining this project.
 

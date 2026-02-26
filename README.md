@@ -1,4 +1,4 @@
-# terminator-claude-bell
+# claude-bell
 
 Flashes the Terminator terminal titlebar when Claude Code finishes or needs your attention.
 
