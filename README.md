@@ -1,11 +1,19 @@
 # claude-bell
 
-Flashes the Terminator terminal titlebar when Claude Code finishes or needs your attention.
+Notifies you when Claude Code finishes a response or needs your attention.
 
+**Linux (Terminator)** — flashes the titlebar of the specific split pane where Claude is running:
 - **Green slow flash** — Claude finished, waiting for your next message
-- **Red fast flash** — Claude asked you a question, or a permission prompt appeared
+- **Red fast flash** — Claude asked a question or a permission prompt appeared
 
-The flash targets only the specific split pane where Claude is running and persists until you click or type in that pane.
+The flash persists until you click or type in that pane.
+
+**Windows (Windows Terminal)** — shows a toast notification:
+- **"Response is ready"** — Claude finished (default sound)
+- **"Claude has a question"** — response ends with a question (reminder sound)
+- **"Claude is waiting"** — permission prompt appeared (reminder sound)
+
+Toasts are suppressed when Windows Terminal is already in focus. Clicking a toast brings Windows Terminal to front.
 
 ## Requirements
 
