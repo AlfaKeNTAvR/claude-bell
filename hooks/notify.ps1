@@ -25,7 +25,7 @@ try {
 } catch { <# fail open — show toast if focus check errors #> }
 
 $xml = @'
-<toast scenario="reminder">
+<toast scenario="reminder" activationType="protocol" launch="windowsterminal:">
   <visual>
     <binding template="ToastGeneric">
       <text>&#x23F8; Claude is waiting</text>

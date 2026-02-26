@@ -37,7 +37,7 @@ $type = if ($msg.EndsWith('?')) { 'question' } else { 'done' }
 
 if ($type -eq 'question') {
     $xml = @'
-<toast scenario="reminder">
+<toast scenario="reminder" activationType="protocol" launch="windowsterminal:">
   <visual>
     <binding template="ToastGeneric">
       <text>&#x2753; Claude has a question</text>
@@ -48,7 +48,7 @@ if ($type -eq 'question') {
 '@
 } else {
     $xml = @'
-<toast>
+<toast activationType="protocol" launch="windowsterminal:">
   <visual>
     <binding template="ToastGeneric">
       <text>&#x2705; Response is ready</text>
