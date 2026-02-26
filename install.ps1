@@ -11,8 +11,8 @@ $ErrorActionPreference = 'Stop'
 
 $Repo = $PSScriptRoot
 
-Write-Host "Installing claude-bell (Windows)..."
-Write-Host ""
+Write-Host 'Installing claude-bell (Windows)...'
+Write-Host ''
 
 # -- 1. Register ClaudeCode app ID (HKCU - no admin required) -----------------
 $AppId   = 'ClaudeCode'
@@ -21,12 +21,12 @@ $isNew   = -not (Test-Path $RegPath)
 New-Item -Path $RegPath -Force | Out-Null
 New-ItemProperty -Path $RegPath -Name DisplayName -Value 'Claude Code' `
     -PropertyType String -Force | Out-Null
-New-ItemProperty -Path $RegPath -Name ShowInSettings -Value 0 `
+New-ItemProperty -Path $RegPath -Name ShowInSettings -Value 1 `
     -PropertyType DWord -Force | Out-Null
 if ($isNew) {
-    Write-Host "  + Registered ClaudeCode app ID in HKCU"
+    Write-Host '  + Registered ClaudeCode app ID in HKCU'
 } else {
-    Write-Host "  v ClaudeCode app ID already registered"
+    Write-Host '  v ClaudeCode app ID already registered'
 }
 
 # -- 2. Register windowsterminal: URI handler (HKCU - no admin required) ------
@@ -42,10 +42,10 @@ if ($WtCmd) {
     if ($isNewUri) {
         Write-Host "  + Registered windowsterminal: URI handler -> $WtExe"
     } else {
-        Write-Host "  v windowsterminal: URI handler already registered"
+        Write-Host '  v windowsterminal: URI handler already registered'
     }
 } else {
-    Write-Host "  ! wt.exe not found - skipping windowsterminal: URI handler"
+    Write-Host '  ! wt.exe not found - skipping windowsterminal: URI handler'
 }
 
 # -- 3. Copy hook scripts ------------------------------------------------------
@@ -64,31 +64,52 @@ if (-not (Test-Path $Settings)) {
     Copy-Item "$Repo\settings-hooks-windows.json" $Settings
     Write-Host "  + Settings -> $Settings (created)"
 } else {
-    $existing = Get-Content $Settings -Raw | ConvertFrom-Json
-    $hasStop  = $existing.hooks.Stop -ne $null
-    if ($hasStop) {
-        Write-Host "  v Hooks already present in $Settings (skipped)"
-    } else {
+    $existing = $null
+    try {
+        $existing = Get-Content $Settings -Raw | ConvertFrom-Json
+    } catch {
+        $backup = $Settings + '.bak'
+        Write-Host "  ! $Settings is not valid JSON - backing up to $backup and recreating from template."
+        Copy-Item $Settings $backup -Force
+        Copy-Item "$Repo\settings-hooks-windows.json" $Settings -Force
+        Write-Host "  + Settings -> $Settings (recreated from template)"
+    }
+    if ($existing -ne $null) {
         $merged = $existing
         if (-not $merged.hooks) {
             $merged | Add-Member -MemberType NoteProperty -Name hooks -Value ([PSCustomObject]@{})
         }
+        $anyMerged = $false
         foreach ($event in $NewHooks.hooks.PSObject.Properties.Name) {
-            $cur = $merged.hooks.$event
-            $add = $NewHooks.hooks.$event
+            $cur     = $merged.hooks.$event
+            $addList = @($NewHooks.hooks.$event)
             if ($cur) {
-                $merged.hooks.$event = @($cur) + @($add)
+                $existingArr = @($cur)
+                foreach ($hook in $addList) {
+                    $hookJson = ($hook | ConvertTo-Json -Depth 10 -Compress)
+                    $already  = $existingArr | Where-Object { ($_ | ConvertTo-Json -Depth 10 -Compress) -eq $hookJson }
+                    if (-not $already) {
+                        $existingArr += $hook
+                        $anyMerged    = $true
+                    }
+                }
+                $merged.hooks.$event = $existingArr
             } else {
-                $merged.hooks | Add-Member -MemberType NoteProperty -Name $event -Value $add -Force
+                $merged.hooks | Add-Member -MemberType NoteProperty -Name $event -Value $addList -Force
+                $anyMerged = $true
             }
         }
-        [System.IO.File]::WriteAllText($Settings, ($merged | ConvertTo-Json -Depth 10))
-        Write-Host "  + Hooks merged -> $Settings"
+        if ($anyMerged) {
+            [System.IO.File]::WriteAllText($Settings, ($merged | ConvertTo-Json -Depth 10))
+            Write-Host "  + Hooks merged -> $Settings"
+        } else {
+            Write-Host "  v Hooks already present in $Settings (skipped)"
+        }
     }
 }
 
-Write-Host ""
-Write-Host "Done."
-Write-Host ""
-Write-Host "Note: toasts respect Windows Focus Assist / Do Not Disturb."
-Write-Host "They still land in the notification center (Win+N) when suppressed."
+Write-Host ''
+Write-Host 'Done.'
+Write-Host ''
+Write-Host 'Note: toasts are suppressed when Windows Terminal is already in focus.'
+Write-Host 'When Focus Assist / Do Not Disturb suppresses them, they still land in the notification center (Win+N).'
