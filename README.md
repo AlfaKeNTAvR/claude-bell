@@ -52,15 +52,27 @@ Copy-Item hooks\stop.ps1   "$HOME\.claude\hooks\"
 Copy-Item hooks\notify.ps1 "$HOME\.claude\hooks\"
 ```
 
-**2. Register the app ID** (so toasts show "Claude Code" as the source)
+**2. Register the app ID** (so toasts show "Claude Code" as the source in Windows Settings)
 
 ```powershell
 $r = "HKCU:\Software\Classes\AppUserModelId\ClaudeCode"
 New-Item -Path $r -Force | Out-Null
-New-ItemProperty -Path $r -Name DisplayName -Value "Claude Code" -PropertyType String -Force | Out-Null
+New-ItemProperty -Path $r -Name DisplayName      -Value "Claude Code" -PropertyType String -Force | Out-Null
+New-ItemProperty -Path $r -Name ShowInSettings   -Value 1             -PropertyType DWord  -Force | Out-Null
 ```
 
-**3. Merge hooks into `~/.claude/settings.json`**
+**3. Register the `windowsterminal:` URI handler** (so clicking a toast focuses Windows Terminal)
+
+```powershell
+$wt = (Get-Command wt.exe).Source
+$u  = "HKCU:\Software\Classes\windowsterminal"
+New-Item -Path "$u\shell\open\command" -Force | Out-Null
+New-ItemProperty -Path $u -Name "(default)"    -Value "URL:Windows Terminal" -Force | Out-Null
+New-ItemProperty -Path $u -Name "URL Protocol" -Value ""                     -Force | Out-Null
+New-ItemProperty -Path "$u\shell\open\command" -Name "(default)" -Value "`"$wt`" -w 0 focus-tab" -Force | Out-Null
+```
+
+**4. Merge hooks into `~/.claude/settings.json`**
 
 If you don't have an existing settings file:
 ```powershell
