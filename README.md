@@ -2,11 +2,11 @@
 
 Notifies you when Claude Code finishes a response or needs your attention.
 
-**Linux (Terminator)** — flashes the titlebar of the specific split pane where Claude is running:
+**Linux (Terminator)** — flashes the titlebar of the specific split pane where Claude is running and bounces the Terminator dock icon:
 - **Green slow flash** — Claude finished, waiting for your next message
 - **Red fast flash** — Claude asked a question or a permission prompt appeared
 
-The flash persists until you click or type in that pane.
+The flash and dock bounce persist until you click or type in that pane.
 
 **Windows (Windows Terminal)** — shows a toast notification:
 - **"Response is ready"** — Claude finished (default sound)
@@ -175,7 +175,7 @@ Claude Code hooks write a type indicator to `/tmp/claude_bell_type` and ring the
 - `PermissionRequest` hook — writes `question` unconditionally (permission prompt = urgent)
 - `Notification` hook — writes `question` unconditionally
 
-The Terminator plugin (`plugins/bell_flash.py`) listens for the VTE `bell` signal on each pane, reads `/tmp/claude_bell_type`, and flashes the titlebar accordingly.
+The Terminator plugin (`plugins/bell_flash.py`) listens for the VTE `bell` signal on each pane, reads `/tmp/claude_bell_type`, flashes the titlebar accordingly, and sets the GTK urgency hint on the window so GNOME's dock bounces the Terminator icon.
 
 ### Windows (Windows Terminal)
 

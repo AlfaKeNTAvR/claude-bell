@@ -59,9 +59,10 @@ Fires for general Claude Code notifications. Catch-all for anything not covered 
 - Uses `terminatorlib.plugin.Plugin` with `terminal_menu` capability
 - Scans `Terminator().terminals` on startup and every 3 s to attach to new split panes
 - On each terminal attach: calls `set_size_request(-1, _FLASH_HEIGHT)` once to permanently widen the titlebar (avoids resize events during flash that would reset VTE scroll position), then connects to: `vte.bell`, `vte.button-press-event`, `vte.key-press-event`
-- On bell: checks `/tmp/claude_bell_type` freshness (`_MAX_AGE_S`); ignores stale bells (e.g. bash Tab completion). If fresh, picks a color profile, applies GTK3 CSS to `terminal.titlebar`, disables `scroll-on-output` on the VTE, starts a GLib timeout for color flashing
+- On bell: checks `/tmp/claude_bell_type` freshness (`_MAX_AGE_S`); ignores stale bells (e.g. bash Tab completion). If fresh, picks a color profile, applies GTK3 CSS to `terminal.titlebar`, disables `scroll-on-output` on the VTE, starts a GLib timeout for color flashing, and sets `window.set_urgency_hint(True)` to bounce the dock icon
 - On interact (click/keypress): stops flashing for that specific pane
 - Focus poll (`_focus_poll`, 200 ms): stops flashing only when `window.is_active() AND vte.is_focus() AND scroll is at bottom` — ensures flash persists when user is on another monitor or has scrolled up to read history
+- Urgency hint is cleared (`set_urgency_hint(False)`) in `_stop` only when `self._state` is empty (all panes done flashing)
 
 **If flash stops too early:** Check `_focus_poll` — `is_focus()` returns True for the last-focused pane even when the window isn't active. The `window.is_active()` guard prevents this. If it regresses, check GTK version behaviour of `Gtk.Widget.is_focus()` and `Gtk.Window.is_active()`.
 

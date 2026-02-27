@@ -105,6 +105,9 @@ class BellFlashTitle(plugin.Plugin):
                                  'scroll_on_output': scroll_on_output}
         if self._poll_id is None:
             self._poll_id = GLib.timeout_add(_POLL_MS, self._focus_poll)
+        window = terminal.vte.get_toplevel()
+        if window:
+            window.set_urgency_hint(True)
 
     def _on_interact(self, _vte, _event, terminal):
         self._stop(terminal)
@@ -142,6 +145,10 @@ class BellFlashTitle(plugin.Plugin):
         GLib.source_remove(s['timeout'])
         terminal.titlebar.get_style_context().remove_provider(s['provider'])
         terminal.vte.set_property('scroll-on-output', s['scroll_on_output'])
+        if not self._state:
+            window = terminal.vte.get_toplevel()
+            if window:
+                window.set_urgency_hint(False)
 
     # --- required by terminal_menu capability -------------------------
 
