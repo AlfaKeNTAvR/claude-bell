@@ -58,15 +58,12 @@ Fires for general Claude Code notifications. Catch-all for anything not covered 
 
 - Uses `terminatorlib.plugin.Plugin` with `terminal_menu` capability
 - Scans `Terminator().terminals` on startup and every 3 s to attach to new split panes
-- On each terminal attach: calls `set_size_request(-1, _FLASH_HEIGHT)` once to permanently widen the titlebar (avoids resize events during flash that would reset VTE scroll position), then connects to: `vte.bell`, `vte.button-press-event`, `vte.key-press-event`
-- On bell: checks `/tmp/claude_bell_type` freshness (`_MAX_AGE_S`); ignores stale bells (e.g. bash Tab completion). If fresh, picks a color profile, applies GTK3 CSS to `terminal.titlebar`, disables `scroll-on-output` on the VTE, starts a GLib timeout for color flashing, and sets `window.set_urgency_hint(True)` to bounce the dock icon
-- On interact (click/keypress): stops flashing for that specific pane
-- Focus poll (`_focus_poll`, 200 ms): stops flashing only when `window.is_active() AND vte.is_focus() AND scroll is at bottom` — ensures flash persists when user is on another monitor or has scrolled up to read history
+- On each terminal attach connects to: `vte.bell`, `vte.button-press-event`, `vte.key-press-event`, `vte.scroll-event`, `vte.motion-notify-event`
+- On bell: checks `/tmp/claude_bell_type` freshness (`_MAX_AGE_S`); ignores stale bells (e.g. bash Tab completion). If fresh, picks a color profile, creates two GTK3 CSS providers (flash color and alt color), applies the flash color to `terminal.titlebar`, disables `scroll-on-output` on the VTE, starts a GLib timeout that alternates between the two providers, and sets `window.set_urgency_hint(True)` to bounce the dock icon
+- On interact (click/keypress/scroll/mouse move): stops flashing for that specific pane. A grace period (`_GRACE_S`, 3 s) ignores interaction events immediately after flash starts to prevent synthetic GTK events from dismissing the flash
 - Urgency hint is cleared (`set_urgency_hint(False)`) in `_stop` only when `self._state` is empty (all panes done flashing)
 
-**If flash stops too early:** Check `_focus_poll` — `is_focus()` returns True for the last-focused pane even when the window isn't active. The `window.is_active()` guard prevents this. If it regresses, check GTK version behaviour of `Gtk.Widget.is_focus()` and `Gtk.Window.is_active()`.
-
-**If scroll jumps when flash fires:** The titlebar height is set permanently on attach (`_attach_new_terminals`) to avoid resize events. If VTE scroll still resets, check whether Terminator is overriding `set_size_request` on attach and re-evaluate using `_FLASH_HEIGHT = -1` (colour-only flash).
+**If flash stops too early:** Increase `_GRACE_S`. Synthetic GTK events (e.g. `motion-notify-event` when cursor is already over the VTE) can dismiss the flash if the grace period is too short.
 
 **If the plugin doesn't load:** Confirm `BellFlashTitle` is listed in `enabled_plugins` in `~/.config/terminator/config` and that the plugin is enabled in Terminator Preferences → Plugins.
 
@@ -125,11 +122,11 @@ matter, but confirm with `Get-ExecutionPolicy`.
 ### Linux (Terminator)
 
 1. Start Claude Code in a Terminator pane
-2. Move focus to another monitor or application
-3. Send Claude a statement — expect **green slow flash** on that pane
-4. Send Claude a question that it responds to with a question — expect **red fast flash**
-5. Trigger a permission prompt — expect **red fast flash**
-6. Click or type in the flashing pane — flash should stop
+2. Send Claude a statement — expect **green/gray slow flash** (800 ms) on that pane's titlebar
+3. Send Claude a question that it responds to with a question — expect **red/gray fast flash** (500 ms)
+4. Trigger a permission prompt — expect **red/gray fast flash** (500 ms)
+5. Click, type, scroll, or move the mouse in the flashing pane — flash should stop
+6. Flash persists regardless of window/pane focus until explicit interaction
 
 ## Debugging hooks
 

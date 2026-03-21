@@ -3,9 +3,9 @@
 Flashes the terminal titlebar on bell; color and speed depend on the
 notification type written to /tmp/claude_bell_type:
   done     -> green, slow flash (800 ms)
-  question -> red,   fast flash (300 ms)
+  question -> red,   fast flash (500 ms)
 
-Stops flashing when that specific pane is focused.
+Stops flashing only on explicit interaction (click, keypress, scroll, mouse move).
 
 Install: place in ~/.config/terminator/plugins/
 Enable:  Terminator Preferences → Plugins → BellFlashTitle
@@ -22,18 +22,17 @@ from gi.repository import GLib, Gtk
 
 AVAILABLE = ['BellFlashTitle']
 
-_POLL_MS = 200
 _TYPE_FILE = '/tmp/claude_bell_type'
 
 _PROFILES = {
-    'done':     {'color': b'#2E7D32', 'ms': 800},   # dark green, slow
-    'question': {'color': b'#CC0000', 'ms': 300},   # red, fast
+    'done':     {'color': b'#2E7D32', 'alt': b'#C0C0C0', 'ms': 800},   # green / gray
+    'question': {'color': b'#CC0000', 'alt': b'#C0C0C0', 'ms': 500},   # red / gray
 }
 _DEFAULT_PROFILE = 'done'
 
 _CSS_TEMPLATE = b'* { background-color: %b; color: #FFFFFF; }'
-_FLASH_HEIGHT = 30  # px; titlebar is set to this height permanently on attach
 _MAX_AGE_S = 2.0    # ignore bells where the type file is older than this
+_GRACE_S = 3.0      # ignore interaction events this long after flash starts
 
 
 def _read_type():
@@ -54,8 +53,7 @@ class BellFlashTitle(plugin.Plugin):
 
     def __init__(self):
         super().__init__()
-        self._state   = {}    # terminal -> {timeout_id, provider, on, ms}
-        self._poll_id = None
+        self._state = {}  # terminal -> flash state dict
         GLib.idle_add(self._initial_scan)
         GLib.timeout_add(3000, self._periodic_scan)
 
@@ -77,11 +75,11 @@ class BellFlashTitle(plugin.Plugin):
         for t in terminals:
             if not getattr(t, '_bft_attached', False):
                 t._bft_attached = True
-                if _FLASH_HEIGHT > 0:
-                    t.titlebar.set_size_request(-1, _FLASH_HEIGHT)
                 t.vte.connect('bell', self._on_bell, t)
                 t.vte.connect('button-press-event', self._on_interact, t)
                 t.vte.connect('key-press-event', self._on_interact, t)
+                t.vte.connect('scroll-event', self._on_interact, t)
+                t.vte.connect('motion-notify-event', self._on_interact, t)
 
     # --- bell / flash logic -------------------------------------------
 
@@ -92,24 +90,29 @@ class BellFlashTitle(plugin.Plugin):
         if bell_type is None:
             return  # stale or missing type file — not a Claude bell
         profile = _PROFILES[bell_type]
-        css = _CSS_TEMPLATE % profile['color']
-        provider = Gtk.CssProvider()
-        provider.load_from_data(css)
+        provider_on = Gtk.CssProvider()
+        provider_on.load_from_data(_CSS_TEMPLATE % profile['color'])
+        provider_off = Gtk.CssProvider()
+        provider_off.load_from_data(_CSS_TEMPLATE % profile['alt'])
         terminal.titlebar.get_style_context().add_provider(
-            provider, Gtk.STYLE_PROVIDER_PRIORITY_USER)
+            provider_on, Gtk.STYLE_PROVIDER_PRIORITY_USER)
         scroll_on_output = terminal.vte.get_property('scroll-on-output')
         terminal.vte.set_property('scroll-on-output', False)
         ms = profile['ms']
         tid = GLib.timeout_add(ms, self._tick, terminal)
-        self._state[terminal] = {'timeout': tid, 'provider': provider, 'on': True,
-                                 'scroll_on_output': scroll_on_output}
-        if self._poll_id is None:
-            self._poll_id = GLib.timeout_add(_POLL_MS, self._focus_poll)
+        self._state[terminal] = {'timeout': tid, 'provider_on': provider_on,
+                                 'provider_off': provider_off, 'on': True,
+                                 'scroll_on_output': scroll_on_output,
+                                 'started': time.monotonic()}
         window = terminal.vte.get_toplevel()
         if window:
             window.set_urgency_hint(True)
 
     def _on_interact(self, _vte, _event, terminal):
+        s = self._state.get(terminal)
+        if s:
+            if time.monotonic() - s['started'] < _GRACE_S:
+                return False  # ignore events during grace period
         self._stop(terminal)
         return False  # don't consume the event
 
@@ -120,22 +123,11 @@ class BellFlashTitle(plugin.Plugin):
         s['on'] = not s['on']
         ctx = terminal.titlebar.get_style_context()
         if s['on']:
-            ctx.add_provider(s['provider'], Gtk.STYLE_PROVIDER_PRIORITY_USER)
+            ctx.remove_provider(s['provider_off'])
+            ctx.add_provider(s['provider_on'], Gtk.STYLE_PROVIDER_PRIORITY_USER)
         else:
-            ctx.remove_provider(s['provider'])
-        return True
-
-    def _focus_poll(self):
-        if not self._state:
-            self._poll_id = None
-            return False
-        for terminal in list(self._state.keys()):
-            window = terminal.vte.get_toplevel()
-            if window and window.is_active() and terminal.vte.is_focus():
-                adj = terminal.vte.get_vadjustment()
-                at_bottom = adj.get_value() >= adj.get_upper() - adj.get_page_size()
-                if at_bottom:
-                    self._stop(terminal)
+            ctx.remove_provider(s['provider_on'])
+            ctx.add_provider(s['provider_off'], Gtk.STYLE_PROVIDER_PRIORITY_USER)
         return True
 
     def _stop(self, terminal):
@@ -143,7 +135,9 @@ class BellFlashTitle(plugin.Plugin):
         if not s:
             return
         GLib.source_remove(s['timeout'])
-        terminal.titlebar.get_style_context().remove_provider(s['provider'])
+        ctx = terminal.titlebar.get_style_context()
+        ctx.remove_provider(s['provider_on'])
+        ctx.remove_provider(s['provider_off'])
         terminal.vte.set_property('scroll-on-output', s['scroll_on_output'])
         if not self._state:
             window = terminal.vte.get_toplevel()

@@ -6,7 +6,7 @@ Notifies you when Claude Code finishes a response or needs your attention.
 - **Green slow flash** — Claude finished, waiting for your next message
 - **Red fast flash** — Claude asked a question or a permission prompt appeared
 
-The flash and dock bounce persist until you click or type in that pane.
+The flash and dock bounce persist until you interact with that pane (click, keypress, scroll, or mouse move).
 
 **Windows (Windows Terminal)** — shows a toast notification:
 - **"Response is ready"** — Claude finished (default sound)
@@ -199,11 +199,11 @@ Rapid events replace rather than stack in the action center thanks to tag dedupl
 
 ```python
 _PROFILES = {
-    'done':     {'color': b'#2E7D32', 'ms': 800},   # green, slow
-    'question': {'color': b'#CC0000', 'ms': 300},   # red, fast
+    'done':     {'color': b'#2E7D32', 'alt': b'#C0C0C0', 'ms': 800},   # green / gray
+    'question': {'color': b'#CC0000', 'alt': b'#C0C0C0', 'ms': 500},   # red / gray
 }
-_FLASH_HEIGHT = 30  # permanent titlebar height in px; -1 to keep default height
 _MAX_AGE_S = 2.0    # ignore bells where the type file is older than this
+_GRACE_S = 3.0      # ignore interaction events this long after flash starts
 ```
 
 **Windows:** Edit the toast XML strings and sound references at the top of `~/.claude/hooks/stop.ps1` and
