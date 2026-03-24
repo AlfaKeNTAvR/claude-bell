@@ -79,7 +79,7 @@ class BellFlashTitle(plugin.Plugin):
                 t.vte.connect('button-press-event', self._on_interact, t)
                 t.vte.connect('key-press-event', self._on_interact, t)
                 t.vte.connect('scroll-event', self._on_interact, t)
-                t.vte.connect('motion-notify-event', self._on_interact, t)
+                t.vte.connect('motion-notify-event', self._on_motion, t)
 
     # --- bell / flash logic -------------------------------------------
 
@@ -109,10 +109,13 @@ class BellFlashTitle(plugin.Plugin):
             window.set_urgency_hint(True)
 
     def _on_interact(self, _vte, _event, terminal):
+        self._stop(terminal)
+        return False  # don't consume the event
+
+    def _on_motion(self, _vte, _event, terminal):
         s = self._state.get(terminal)
-        if s:
-            if time.monotonic() - s['started'] < _GRACE_S:
-                return False  # ignore events during grace period
+        if s and time.monotonic() - s['started'] < _GRACE_S:
+            return False  # ignore spurious motion events right after flash starts
         self._stop(terminal)
         return False  # don't consume the event
 
